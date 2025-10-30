@@ -14,18 +14,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      #  Step 2: Setup Node.js and Build Frontend
-      - name: Setup Node.js and Build
-        run: |
-          echo "🛠️ Setting up Node.js and building project..."
-          sudo apt-get update -y
-          sudo apt-get install -y nodejs npm
-          npm ci
+      #  Step 2: Setup Node, install dependencies & build frontend
+      - name: Build Frontend
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - run: |
+          echo "🛠️ Setting up Node and building project..."
+          npm ci --silent
           echo "${{ secrets.FRONTEND_ENV }}" > .env
-          npm run build
+          echo "Environment file created"
+          npm run build --silent
 
-      #  Step 3: Deploy Build Files to EC2
-      - name: Deploy Build to EC2
+      #  Step 3: Prepare EC2 directory before deployment
+      - name: Prepare EC2 target directory
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            sudo mkdir -p /var/www/Elden-ATS/Frontend-ATS/dist
+            sudo chown -R ubuntu:ubuntu /var/www/Elden-ATS/Frontend-ATS
+            sudo chmod -R 755 /var/www/Elden-ATS/Frontend-ATS
+
+      #  Step 4: Copy built files and restart Nginx
+      - name: Deploy build to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -35,8 +49,7 @@ jobs:
           target: "/var/www/Elden-ATS/Frontend-ATS/"
           overwrite: true
 
-      #  Step 4: Fix Permissions and Reload Nginx
-      - name: Finalize Deployment
+      - name: Finalize permissions & reload Nginx
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -46,4 +59,4 @@ jobs:
             sudo chown -R www-data:www-data /var/www/Elden-ATS/Frontend-ATS/dist
             sudo chmod -R 755 /var/www/Elden-ATS/Frontend-ATS/dist
             sudo nginx -t && sudo systemctl reload nginx
-            echo " Deployment complete!"
+            echo " Deployment completed successfully"
