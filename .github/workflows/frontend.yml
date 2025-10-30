@@ -10,34 +10,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      #  Step 1: Checkout + Setup Node + Install dependencies + Build
-      - name: Build Frontend
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
+      #  Step 1: Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      #  Step 2: Setup Node.js and Build Frontend
+      - name: Setup Node.js and Build
         run: |
-          echo "🛠️ Setting up Node and building project..."
+          echo "🛠️ Setting up Node.js and building project..."
+          sudo apt-get update -y
+          sudo apt-get install -y nodejs npm
           npm ci
           echo "${{ secrets.FRONTEND_ENV }}" > .env
           npm run build
 
-      #  Step 2: Prepare EC2 (ensure nginx + target directory)
-      - name: Prepare EC2 Environment
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            sudo apt update -y
-            sudo apt install nginx -y
-            sudo systemctl enable nginx
-            sudo mkdir -p /var/www/Elden-ATS/Frontend-ATS/dist
-            sudo chown -R ubuntu:ubuntu /var/www/Elden-ATS
-            sudo chmod -R 755 /var/www/Elden-ATS
-            echo " EC2 ready for deployment"
-
-      #  Step 3: Deploy Build Files
+      #  Step 3: Deploy Build Files to EC2
       - name: Deploy Build to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -48,7 +35,7 @@ jobs:
           target: "/var/www/Elden-ATS/Frontend-ATS/"
           overwrite: true
 
-      #  Step 4: Finalize (permissions + reload nginx)
+      #  Step 4: Fix Permissions and Reload Nginx
       - name: Finalize Deployment
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -59,5 +46,4 @@ jobs:
             sudo chown -R www-data:www-data /var/www/Elden-ATS/Frontend-ATS/dist
             sudo chmod -R 755 /var/www/Elden-ATS/Frontend-ATS/dist
             sudo nginx -t && sudo systemctl reload nginx
-            echo "🚀 Deployment complete!"
-
+            echo " Deployment complete!"
