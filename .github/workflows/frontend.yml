@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: 18
       - run: |
-          echo "🛠️ Setting up Node and building project..."
+          echo " Setting up Node and building project..."
           npm ci --silent
           echo "${{ secrets.FRONTEND_ENV }}" > .env
           echo "Environment file created"
